@@ -628,7 +628,7 @@ the physical address to obtain the virtual address):
 ```C
 void keypress(void)
 {
-        volatile chae key = *(volatile char *)0x9f000010;
+        volatile char key = *(volatile char *)0x9f000010;
         /* ... */
 }
 ```
@@ -887,7 +887,7 @@ You can even define your own sections:
 Linking object files could be done by
 
 ```
-mips-linux-gnu-ld -N -T <your-linker-script> -o <your-program-file> \
+mips-linux-gnu-ld -T <your-linker-script> -o <your-program-file> \
         <your-object-file-list>
 ```
 
@@ -896,7 +896,7 @@ becomes (moreover, assuming that you're strictly following the guide
 above, and you'd like to output the final program to file `firmware`):
 
 ```
-mips-linux-gnu-ld -N -T firmware.ld -o firmware firmware-entry.o \
+mips-linux-gnu-ld -T firmware.ld -o firmware firmware-entry.o \
         firmware-main.o
 ```
 
@@ -1068,7 +1068,7 @@ firmware.bin: firmware-main.c firmware-entry.S
         mips-linux-gnu-gcc -EL -nostdinc -nostdlib -mabi=32 -mips32 -fno-pic \
                 -g -mno-abicalls -I. -I./include -I./include/arch/mips \
                 -c -o firmware-main.o firmware-main.S
-        mips-linux-gnu-ld -N -T firmware.ld -o firmware firmware-entry.o \
+        mips-linux-gnu-ld -T firmware.ld -o firmware firmware-entry.o \
                 firmware-main.o
         mips-linux-gnu-objcopy -O binary -j .text <more-options> firmware \
                 firmware.bin
@@ -1089,7 +1089,7 @@ firmware: firmware-main.c firmware-entry.S
         mips-linux-gnu-gcc -EL -nostdinc -nostdlib -mabi=32 -mips32 -fno-pic \
                 -g -mno-abicalls -I. -I./include -I./include/arch/mips \
                 -c -o firmware-main.o firmware-main.S
-        mips-linux-gnu-ld -N -T firmware.ld -o firmware firmware-entry.o \
+        mips-linux-gnu-ld -T firmware.ld -o firmware firmware-entry.o \
                 firmware-main.o
         mips-linux-gnu-objcopy -O binary -j .text <more-options> firmware \
                 firmware.bin
@@ -1110,7 +1110,7 @@ firmware.bin: firmware
                 firmware.bin
 
 firmware: firmware-main.o firmware-entry.o
-        mips-linux-gnu-ld -N -T firmware.ld -o firmware firmware-entry.o \
+        mips-linux-gnu-ld -T firmware.ld -o firmware firmware-entry.o \
                 firmware-main.o
 
 firmware-main.o:
@@ -1192,7 +1192,7 @@ firmware.bin: firmware
 
 # Add snprintf.o to the list if you have date & time printing
 firmware: firmware-main.o firmware-entry.o
-        mips-linux-gnu-ld -N -T firmware.ld -o firmware firmware-entry.o \
+        mips-linux-gnu-ld -T firmware.ld -o firmware firmware-entry.o \
                 firmware-main.o
 
 # firmware-main.o is omitted and being processed by default rules.
@@ -1246,7 +1246,7 @@ firmware.bin: firmware
 
 # Add snprintf.o to the list if you have date & time printing
 firmware: firmware-main.o firmware-entry.o
-        $(LD) -N -T firmware.ld -o firmware firmware-entry.o firmware-main.o
+        $(LD) -T firmware.ld -o firmware firmware-entry.o firmware-main.o
 
 # firmware-main.o is omitted and being processed by default rules.
 # And so is snprintf.o
@@ -1287,7 +1287,7 @@ $(BINARY): $(ELF)
 
 # Add snprintf.o to the list if you have date & time printing
 $(ELF): $(OBJS)
-        $(LD) -N -T $(LDSCRIPT) -o $(ELF) $(OBJS)
+        $(LD) -T $(LDSCRIPT) -o $(ELF) $(OBJS)
 
 # firmware-main.o is omitted and being processed by default rules.
 # And so is snprintf.o
@@ -1331,7 +1331,7 @@ $(BINARY): $(ELF)
         $(OBJCOPY) -O binary -j .text <more-options> $(ELF) $(BINARY)
 
 $(ELF): $(OBJS)
-        $(LD) -N -T $(LDSCRIPT) -o $(ELF) $(OBJS)
+        $(LD) -T $(LDSCRIPT) -o $(ELF) $(OBJS)
 
 # firmware-main.o is omitted and being processed by default rules.
 # And so is snprintf.o
@@ -1389,7 +1389,7 @@ $(BINARY): $(ELF)
         $(OBJCOPY) -O binary -j .text <more-options> $(ELF) $(BINARY)
 
 $(ELF): $(OBJS)
-        $(LD) -N -T $(LDSCRIPT) -o $(ELF) $(OBJS)
+        $(LD) -T $(LDSCRIPT) -o $(ELF) $(OBJS)
 
 # firmware-main.o is omitted and being processed by default rules.
 # And so is snprintf.o
@@ -1535,7 +1535,7 @@ $(BINARY): $(ELF)
         $(OBJCOPY) -O binary -j .text <more-options> $(ELF) $(BINARY)
 
 $(ELF): $(OBJS)
-        $(LD) -N -T $(LDSCRIPT) -o $(ELF) $(OBJS)
+        $(LD) -T $(LDSCRIPT) -o $(ELF) $(OBJS)
 
 # firmware-main.o is omitted and being processed by default rules.
 # And so is snprintf.o
@@ -2870,21 +2870,39 @@ Architecture-independent kernel initialization code should be put inside
 8. Write or change the `msim` target in top-level Makefile to start MSIM with
   the disk image loaded.  You should receive the Hello World message.
 
+## Turning on optimization: issues again
+
+If we add an optimization flag in the compiler flags:
+
+```
+CFLAGS          = <...> -O2
+```
+
+Remake the project, and you'll see the firmware crashes.
+
+##### Programming exercise (optional)
+
+If you decide to turn on optimization at some point.  Try to figure out what's
+wrong with the binary.
+
+1. Use `xxd(1)` or other tools to figure out what's missing.
+2. Use `readelf(1)` to see which sections GCC has generated now.
+3. Modify your Makefile and/or linker script to ensure that nothing is missed.
+
 ## Weekly Schedule
 
 Milestones:
 
 1. Booting kernel
-2. Trap handling & SMP spinup
-3. Physical memory allocator (Buddy system or First-fit, allocating pages)
-4. Virtual memory allocator (SLAB, allocating bytes)
-5. Kernel thread management: `fork(2)`, `exit(2)`, `wait(2)`, `kill(2)`
+2. SMP spinup & spinlocks
+3. Trap handling
+4. Physical memory allocator (Buddy system or First-fit, allocating pages)
+5. Virtual memory allocator (SLAB, allocating bytes)
+6. Kernel thread management: `fork(2)`, `exit(2)`, `wait(2)`, `kill(2)`
     - Include basic signal handling
-6. Userspace thread management, context switches: `exec`
+7. Userspace thread management, context switches: `exec`
     - No file system involved
-7. Scheduler
-8. Synchronization: spinlocks
-    - Optional: semaphores
+8. Scheduler
 9. File system: simplified UFS
     - Optional challenge: implement the actual UFS
 10. (Optional) Migrate to Loongson using existing codebase
