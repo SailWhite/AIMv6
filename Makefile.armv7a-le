@@ -1,0 +1,83 @@
+# Copyright (C) 2015 David Gao <davidgao1001@gmail.com>
+#
+# This program is free software; you can redistribute  it and/or modify it
+# under  the terms of  the GNU General  Public License as published by the
+# Free Software Foundation;  either version 2 of the  License, or (at your
+# option) any later version.
+
+# Makefile for ARMv7A-LE
+
+######## BEGIN CONFIG ########
+CROSS_COMPILE	=  arm-unknown-eabi-
+
+MACH		=  zynq7000
+BOARD		=  zedboard
+########  END  CONFIG ########
+
+ROOTDIR		=  $(shell pwd)
+UPPERMACH	=  $(shell echo $(MACH) | tr a-z- A-Z_)
+
+M4		=  m4
+CC		=  $(CROSS_COMPILE)gcc
+CPP		=  $(CROSS_COMPILE)cpp
+LD		=  $(CROSS_COMPILE)ld
+OBJDUMP		=  $(CROSS_COMPILE)objdump
+OBJCOPY		=  $(CROSS_COMPILE)objcopy
+
+INCFLAG		=  -I. -I./include -I./include/arch/$(ARCH)
+INCFLAG		+= -I./include/arch/$(ARCH)/asm/mach-$(MACH)
+
+CFLAGS		=  -Wall -fno-builtin -nostdinc -nostdlib -march=armv7-a
+CFLAGS		+= -mlittle-endian $(INCFLAG) -DMACH_$(UPPERMACH)
+
+LDFLAGS		=  -EL -O -N
+
+FIRMWARE_OBJS	=  firmware/arch/$(ARCH)/vector.o \
+		   firmware/arch/$(ARCH)/bootasm.o \
+		   firmware/arch/$(ARCH)/bootmain.o \
+		   drivers/serial/uart-zynq7000.o \
+		   drivers/serial/uart.o \
+		   drivers/clock/gtc-a9mpcore.o \
+		   drivers/sd/sd-zynq7000.o
+
+FIRMWARE_M4	=  firmware/arch/$(ARCH)/firmware.m4 \
+		   firmware/arch/$(ARCH)/$(MACH)/chip.m4 \
+		   firmware/arch/$(ARCH)/$(MACH)/$(BOARD)/board.m4
+
+MBR_OBJS	=  boot/arch/$(ARCH)/$(MACH)/bootmain.o
+
+all: firmware.bin mbr.bin
+
+$(FIRMWARE_OBJS): EXTRA_CFLAGS = -O2
+
+firmware.ld: $(FIRMWARE_M4)
+	$(M4) firmware/arch/$(ARCH)/firmware.m4 \
+	-I firmware/arch/$(ARCH)/$(MACH)/ \
+	-I firmware/arch/$(ARCH)/$(MACH)/$(BOARD)/ > $@
+
+firmware.elf: $(FIRMWARE_OBJS) firmware.ld
+	$(LD) $(LDFLAGS) -T firmware.ld -o $@ $(FIRMWARE_OBJS)
+
+$(MBR_OBJS): EXTRA_CFLAGS := -Os
+
+mbr.elf: $(MBR_OBJS) boot/arch/$(ARCH)/$(MACH)/mbr.ld
+	$(LD) $(LDFLAGS) -T boot/arch/$(ARCH)/$(MACH)/mbr.ld -o $@ $^
+
+clean:
+	rm -f firmware.ld
+	rm -rf $(FIRMWARE_OBJS) firmware.elf firmware.bin firmware.s
+	rm -rf $(MBR_OBJS) mbr.elf mbr.bin mbr.s
+
+.S.o:
+	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -o $@ -c $<
+
+.c.o:
+	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -o $@ -c $<
+
+%.s: %.elf
+	$(OBJDUMP) -S $^ > $@
+
+%.bin: %.elf
+	$(OBJCOPY) -O binary -S $^ $@
+
+.PHONY: clean
